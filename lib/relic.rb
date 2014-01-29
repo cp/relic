@@ -1,5 +1,10 @@
 require "relic/version"
+require "terminal-table"
+require "httparty"
+require "netrc"
+require "thor"
 
 module Relic
-  # Your code goes here...
+  class CLI < Thor
+  end
 end

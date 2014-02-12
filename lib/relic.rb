@@ -9,7 +9,16 @@ module Relic
 
     desc 'servers', 'provide a list of your servers'
     def servers
-      puts "Hello world!"
+      id       = credentials[0]
+      api_key  = credentials[1]
+      response = HTTParty.get("https://api.newrelic.com/api/v1/accounts/#{id}/servers.json", headers: {'x-api-key' => api_key})
+
+      rows = Array.new
+      response.each do |server|
+        rows << [server['id'], server['hostname']]
+      end
+
+      puts Terminal::Table.new(headings: ['ID', 'Host Name'], rows: rows)
     end
 
     desc 'auth', 'authenticate with the New Relic API'
@@ -31,8 +40,8 @@ module Relic
     #
     # @see http://newrelic.github.io/newrelic_api/#label-Account+ID
     #
-    # @param [String] New Relic API key
-    # @return [Integer] account ID
+    # @param [String] New Relic API key.
+    # @return [Integer] account ID.
     # @abort if New Relic doesn't return a 200.
     def account_id(key)
       response = HTTParty.get('https://api.newrelic.com/api/v1/accounts.xml', headers: {'x-api-key' => key})
@@ -41,6 +50,21 @@ module Relic
         response['accounts'].first['id'] # There may be a case where a user has more than one account?
       else
         abort "There was an error. Was your API key correct?"
+      end
+    end
+
+    # Retrieves New Relic credentials from ~/.netrc.
+    #
+    # @return [Array] array of two elements: account ID and API key.
+    # @abort if user hasn't authenticated.
+    def credentials
+      n = Netrc.read
+      auth = n["api.newrelic.com"]
+
+      if auth.nil?
+        abort "Plese authenticate first."
+      else
+        auth
       end
     end
   end

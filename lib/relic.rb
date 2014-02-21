@@ -39,7 +39,7 @@ module Relic
       puts Terminal::Table.new(headings: ['ID', 'Name'], rows: rows)
     end
 
-    desc 'metrics', 'gather metrics for an application.'
+    desc 'metrics', 'gather metrics for an application'
     method_option :app, type: :string, required: true, aliases: '-a'
     def metrics
       abort 'You must provide an app ID with the --app (-a) option.' if options[:app].nil?

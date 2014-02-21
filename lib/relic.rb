@@ -1,24 +1,57 @@
-require "relic/version"
-require "terminal-table"
-require "httparty"
-require "netrc"
-require "thor"
+require 'relic/version'
+require 'terminal-table'
+require 'httparty'
+require 'netrc'
+require 'thor'
 
 module Relic
   class CLI < Thor
 
     desc 'servers', 'provide a list of your servers'
+    method_option :app, type: :string, aliases: '-a'
     def servers
       id       = credentials[0]
       api_key  = credentials[1]
-      response = HTTParty.get("https://api.newrelic.com/api/v1/accounts/#{id}/servers.json", headers: {'x-api-key' => api_key})
+
+      if options[:app]
+        response = HTTParty.get("https://api.newrelic.com/api/v1/accounts/#{id}/applications/#{options[:app]}/servers.json", headers: {'x-api-key' => api_key})
+      else
+        response = HTTParty.get("https://api.newrelic.com/api/v1/accounts/#{id}/servers.json", headers: {'x-api-key' => api_key})
+      end
 
       rows = Array.new
       response.each do |server|
         rows << [server['id'], server['hostname']]
       end
 
-      puts Terminal::Table.new(headings: ['ID', 'Host Name'], rows: rows)
+      title = (options[:app].nil? ? 'All servers' : "Servers for application ##{options[:app]}")
+
+      puts Terminal::Table.new(title: title, headings: ['ID', 'Hostname'], rows: rows)
+    end
+
+    desc 'apps', 'provide a list of your applications'
+    def apps
+      rows = Array.new
+      all_apps.each do |app|
+        rows << [app['id'], app['name']]
+      end
+
+      puts Terminal::Table.new(headings: ['ID', 'Name'], rows: rows)
+    end
+
+    desc 'metrics', 'gather metrics for an application.'
+    method_option :app, type: :string, required: true, aliases: '-a'
+    def metrics
+      abort 'You must provide an app ID with the --app (-a) option.' if options[:app].nil?
+      app_id = options[:app]
+      metrics = HTTParty.get("https://api.newrelic.com/api/v1/accounts/#{credentials[0]}/applications/#{app_id}/threshold_values.json", headers: {'x-api-key' => credentials[1]})
+      rows = Array.new
+
+      metrics['threshold_values'].each do |metric|
+        rows << [metric['name'], metric['formatted_metric_value']]
+      end
+
+      puts Terminal::Table.new(title: "App ##{app_id}", headings: ['Metric', 'Value'], rows: rows)
     end
 
     desc 'auth', 'authenticate with the New Relic API'
@@ -35,6 +68,11 @@ module Relic
     end
 
   private
+
+    # Get all of the user's apps.
+    def all_apps
+      HTTParty.get("https://api.newrelic.com/api/v1/accounts/#{credentials[0]}/applications.json", headers: {'x-api-key' => credentials[1]})
+    end
 
     # Given an API key, reach out to the New Relic API to grab the account ID.
     #
